@@ -19,6 +19,7 @@ Hebrew, Arabic, Persian, and every other right-to-left script — with LaTeX and
 ## The problem
 
 Claude Desktop has **no right-to-left support at all**. If you work in Hebrew, Arabic, or Persian, every long conversation is a struggle — and the moment Claude writes mathematics, it falls apart completely. A rendered formula or an inline `$x^2$` dropped into RTL prose gets scattered by naive direction-flipping, and the line becomes unreadable.
+**the use of Hebrew in AI agents costs more tokes, but if you are out of options and your English isn’t sufficient enough - this is the best option for you.
 
 Browser extensions solved this for **claude.ai** in the web browser. **Nobody solved it for the desktop app** — the [official Anthropic request](https://github.com/anthropics/claude-code/issues/38005) even notes that the Chrome extension *"works for web but not desktop,"* because injecting into Electron through the DevTools protocol fails. The desktop-only patches that do exist just flip whole lines and **leave math broken**.
 
