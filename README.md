@@ -36,10 +36,6 @@ Browser extensions solved this for **claude.ai** in the web browser. **Nobody so
   </tr>
 </table>
 
-<div align="center">
-<img src="assets/screenshot.png" alt="Hebrew text with correctly rendered math in Claude-UniMath" width="80%">
-<br><em></em>
-</div>
 
 ## Why it is different
 
