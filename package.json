@@ -1,0 +1,32 @@
+{
+  "name": "claude-unimath",
+  "version": "1.0.0",
+  "description": "Universal RTL + mathematics support for Claude Desktop on macOS. Detects every right-to-left script and isolates LaTeX/KaTeX and English as left-to-right islands so mixed-direction text with math renders correctly.",
+  "author": "Davidi Bellaire (https://github.com/DavidiBellaire)",
+  "license": "MIT",
+  "homepage": "https://github.com/DavidiBellaire/Claude-UniMath",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DavidiBellaire/Claude-UniMath.git"
+  },
+  "keywords": [
+    "claude",
+    "rtl",
+    "hebrew",
+    "arabic",
+    "bidi",
+    "latex",
+    "katex",
+    "mathematics",
+    "electron",
+    "macos"
+  ],
+  "scripts": {
+    "test": "node test/core.test.js && node test/dom.test.js",
+    "test:core": "node test/core.test.js",
+    "test:dom": "node test/dom.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
