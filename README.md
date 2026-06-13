@@ -31,7 +31,7 @@ Browser extensions solved this for **claude.ai** in the web browser. **Nobody so
 <table>
   <tr>
     <td>
-      <img src="assets/before-n-after.jpg" alt="Before and After Matrix Comparison">
+      <img src="./assets/before-n-after.png" alt="Before and After Matrix Comparison">
     </td>
   </tr>
 </table>
