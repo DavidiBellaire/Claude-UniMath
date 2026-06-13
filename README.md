@@ -29,14 +29,11 @@ Browser extensions solved this for **claude.ai** in the web browser. **Nobody so
 > Hebrew flows right-to-left, every formula stays an upright left-to-right island, code stays LTR.
 
 <!-- 
-  ▶ ADD YOUR SCREENSHOT HERE.
-  1. Open Claude-UniMath, ask for a Hebrew explanation with math (e.g. the quadratic formula).
-  2. Screenshot it (Cmd+Shift+4).
-  3. Drag the image into a GitHub issue to get a URL, then replace the line below:
+  <img width="927" height="417" alt="image" src="https://github.com/user-attachments/assets/55b922ca-9406-43c1-968a-912620a82826" />
 -->
 <div align="center">
 <img src="assets/screenshot.png" alt="Hebrew text with correctly rendered math in Claude-UniMath" width="80%">
-<br><em>Replace this with your before/after screenshot — it is the single most convincing thing on the page.</em>
+<br><em></em>
 </div>
 
 ## Why it is different
