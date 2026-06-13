@@ -28,9 +28,14 @@ Browser extensions solved this for **claude.ai** in the web browser. **Nobody so
 
 > Hebrew flows right-to-left, every formula stays an upright left-to-right island, code stays LTR.
 
-<!-- 
-<img width="927" height="417" alt="Screenshot 2026-06-13 at 16 39 29" src="https://github.com/user-attachments/assets/17bb5799-f8a2-4d45-8bd0-96b4fca236f6" />
--->
+<table>
+  <tr>
+    <td>
+      <img src="assets/before-n-after.jpg" alt="Before and After Matrix Comparison">
+    </td>
+  </tr>
+</table>
+
 <div align="center">
 <img src="assets/screenshot.png" alt="Hebrew text with correctly rendered math in Claude-UniMath" width="80%">
 <br><em></em>
