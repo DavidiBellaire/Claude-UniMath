@@ -21,11 +21,15 @@
 //   naturally around math that stays intact.
 //
 // This file is the pure, DOM-free core so it can be unit-tested directly.
-// The DOM layer (dom.js) and the browser payload (payload.js) build on it.
+// The DOM layer (dom.js) and the runtime wiring (runtime.js) build on it.
+//
+// Everything between the <payload> markers is copied verbatim into
+// src/payload.js by scripts/build.js. Edit here, then run `npm run build`.
 // ===========================================================================
 
 'use strict';
 
+// <payload>
 // --- Strong-RTL detection across ALL right-to-left Unicode scripts ----------
 // BiDi is defined by Unicode block, not by "language", so generalizing to
 // every RTL script is just a matter of listing the blocks. These are the
@@ -80,14 +84,24 @@ const RTL_RANGES = [
 
 function isStrongRTL(ch) {
   const code = ch.codePointAt(0);
+  // Fast exits. Nearly every character on screen is below the first RTL
+  // block (ASCII, Latin, Greek, Cyrillic) or in the long gap between the
+  // Arabic blocks and the presentation forms (CJK, symbols, emoji).
+  if (code < 0x0590) return false;
+  if (code > 0x08ff && code < 0xfb1d) return false;
   for (let i = 0; i < RTL_RANGES.length; i++) {
     if (code >= RTL_RANGES[i][0] && code <= RTL_RANGES[i][1]) return true;
   }
   return false;
 }
 
-function isLatinLetter(ch) {
-  return /[A-Za-z]/.test(ch);
+// A character with a strong left-to-right direction: any letter, in any
+// script, that is not RTL. Latin, Greek, Cyrillic, CJK and the rest all count.
+const ANY_LETTER = /\p{L}/u;
+function isStrongLTR(ch) {
+  const code = ch.codePointAt(0);
+  if (code < 0x80) return (code | 32) >= 97 && (code | 32) <= 122; // a-z, A-Z
+  return ANY_LETTER.test(ch) && !isStrongRTL(ch);
 }
 
 // Does the text contain ANY strong-RTL character?
@@ -100,36 +114,85 @@ function containsRTL(text) {
 }
 
 // First-strong heuristic: returns 'rtl', 'ltr', or null based on the first
-// character with a strong direction. Used to decide a container's base dir.
+// character with a strong direction. Used for the box the user types in.
 function firstStrongDir(text) {
   if (!text) return null;
   for (const ch of text) {
     if (isStrongRTL(ch)) return 'rtl';
-    if (isLatinLetter(ch)) return 'ltr';
+    if (isStrongLTR(ch)) return 'ltr';
   }
   return null;
 }
 
-// --- LaTeX signal: distinguishes real math from a stray currency "$" --------
-// A single-$ pair is treated as math only if the body carries a LaTeX-ish
-// signal. This is a heuristic, kept deliberately conservative: when unsure,
-// do nothing rather than risk mangling ordinary text.
-const LATEX_SIGNAL =
-  /[\\^_{}]|\b(frac|sqrt|sum|prod|int|lim|log|sin|cos|tan|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|phi|omega|cdot|times|leq|geq|neq|approx|infty|partial|nabla|vec|hat|bar|mathbb|mathcal|mathrm)\b/;
+// --- Base direction of a block of prose --------------------------------------
+// Neither of the two obvious rules is good enough for real mixed text:
+//
+//   "any RTL character -> RTL"   flips an English paragraph that merely
+//                                quotes one Hebrew word.
+//   "first strong character"     leaves a Hebrew paragraph left-to-right
+//                                because it opens with "React" or "Python".
+//
+// So a block is RTL when it starts with an RTL letter, OR when RTL letters
+// make up a meaningful share of its letters. Math and code are removed by
+// the caller before counting, so a formula full of Latin letters never
+// outvotes the sentence around it.
+const RTL_SHARE = 0.3;
+function proseDirection(text) {
+  if (!text) return null;
+  let rtl = 0;
+  let ltr = 0;
+  let first = null;
+  for (const ch of text) {
+    if (isStrongRTL(ch)) {
+      rtl++;
+      if (!first) first = 'rtl';
+    } else if (isStrongLTR(ch)) {
+      ltr++;
+      if (!first) first = 'ltr';
+    }
+  }
+  if (rtl === 0) return ltr > 0 ? 'ltr' : null;
+  if (first === 'rtl') return 'rtl';
+  return rtl / (rtl + ltr) >= RTL_SHARE ? 'rtl' : 'ltr';
+}
 
-// Unambiguous bracket delimiters (no currency collision). Non-greedy.
+// --- LaTeX detection: real math versus a stray currency "$" ------------------
+// Characters that only appear in LaTeX source. A "$…$" body containing one is
+// math no matter how it is spaced.
+const LATEX_SIGNAL = /[\\^_{}]/;
+
+// Unambiguous delimiters (no currency collision). Non-greedy.
 const BRACKET_PATTERNS = [
-  /\$\$([\s\S]+?)\$\$/g,   // $$ ... $$   display
-  /\\\[([\s\S]+?)\\\]/g,   // \[ ... \]   display
-  /\\\(([\s\S]+?)\\\)/g,   // \( ... \)   inline
+  /\$\$([\s\S]+?)\$\$/g,                             // $$ ... $$   display
+  /\\\[([\s\S]+?)\\\]/g,                             // \[ ... \]   display
+  /\\\(([\s\S]+?)\\\)/g,                             // \( ... \)   inline
+  /\\begin\{([a-zA-Z*]+)\}[\s\S]+?\\end\{\1\}/g,     // \begin{env} ... \end{env}
 ];
+
+// Is the text between two "$" signs math?
+//
+// Bodies with LaTeX structure are always math. For plain bodies such as
+// "$x$", "$n+1$" or "$f(x) = 2x$" we apply the delimiter rule TeX-aware
+// Markdown parsers use: the opening "$" hugs its content, the closing "$"
+// hugs its content and is not followed by a digit. That is what tells
+// "$x$" apart from "$20 and $30". Words in an RTL script are prose, never a
+// formula, so a body containing them is rejected.
+function isInlineMath(text, open, close) {
+  const body = text.slice(open + 1, close);
+  if (body.length === 0 || body.indexOf('\n') !== -1) return false;
+  if (LATEX_SIGNAL.test(body)) return true;
+  if (/\s/.test(body[0]) || /\s/.test(body[body.length - 1])) return false;
+  const after = text[close + 1];
+  if (after !== undefined && after >= '0' && after <= '9') return false;
+  if (containsRTL(body)) return false;
+  return true;
+}
 
 // Single-$ inline math is ambiguous with currency, so a plain "first matching
 // pair" regex is unsafe: a stray "$" (e.g. "$20") would steal the closing
 // delimiter of real math later in the same line. We instead scan dollar
-// positions and accept a pair as math only when its body has a LaTeX signal;
-// a rejected opening "$" is skipped individually so it cannot consume a later
-// real delimiter.
+// positions and test each neighbouring pair; a rejected opening "$" is
+// skipped individually so it cannot consume a later real delimiter.
 function findInlineDollarRanges(text, claimed) {
   const ranges = [];
   const dollars = [];
@@ -144,8 +207,7 @@ function findInlineDollarRanges(text, claimed) {
   while (k < dollars.length - 1) {
     const open = dollars[k];
     const close = dollars[k + 1];
-    const body = text.slice(open + 1, close);
-    if (body.indexOf('\n') === -1 && LATEX_SIGNAL.test(body)) {
+    if (isInlineMath(text, open, close)) {
       ranges.push({ start: open, end: close + 1 });
       k += 2;
     } else {
@@ -161,7 +223,7 @@ function findLatexRanges(text) {
   const ranges = [];
   const claimed = new Array(text.length).fill(false);
 
-  // Pass 1: unambiguous bracket delimiters (display first).
+  // Pass 1: unambiguous delimiters (display first).
   for (let p = 0; p < BRACKET_PATTERNS.length; p++) {
     const re = new RegExp(BRACKET_PATTERNS[p].source, 'g');
     let m;
@@ -207,15 +269,17 @@ function segmentText(text) {
   }
   return segments;
 }
+// </payload>
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    RTL_RANGES,
-    isStrongRTL,
-    containsRTL,
-    firstStrongDir,
-    findLatexRanges,
-    segmentText,
-    LATEX_SIGNAL,
-  };
-}
+module.exports = {
+  RTL_RANGES,
+  RTL_SHARE,
+  isStrongRTL,
+  isStrongLTR,
+  containsRTL,
+  firstStrongDir,
+  proseDirection,
+  findLatexRanges,
+  segmentText,
+  LATEX_SIGNAL,
+};

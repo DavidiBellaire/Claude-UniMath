@@ -36,13 +36,22 @@ function setup(bodyHTML) {
   domLayer.processAll();
   const p = document.querySelector('p');
   const islands = p.querySelectorAll('[data-unimath-island="raw"]');
-  check('raw math: one island created', islands.length === 1);
-  check('raw math: island text correct', islands[0] && islands[0].textContent === '$\\lambda = 3$');
+  check('raw math: both formulas isolated', islands.length === 2);
+  check('raw math: island text correct',
+    islands[0] && islands[0].textContent === '$\\lambda = 3$' && islands[1].textContent === '$2$');
   check('raw math: island is isolate+ltr',
     islands[0] && islands[0].style.unicodeBidi === 'isolate' && islands[0].style.direction === 'ltr');
   check('raw math: paragraph flips to rtl', p.style.direction === 'rtl');
-  check('raw math: currency "$2" NOT isolated',
-    p.textContent.includes('$2') && islands.length === 1);
+  check('raw math: text is unchanged', p.textContent === 'הערך העצמי הוא $\\lambda = 3$ עם ריבוי $2$');
+}
+
+// --- Test 1b: prices in Hebrew prose are never treated as math --------------
+{
+  const { domLayer, document } = setup('<p>המחיר הוא $5 ולא $10, ושילמתי על $x$ יחידות</p>');
+  domLayer.processAll();
+  const islands = document.querySelectorAll('[data-unimath-island="raw"]');
+  check('currency: only the real variable is isolated',
+    islands.length === 1 && islands[0].textContent === '$x$');
 }
 
 // --- Test 2: rendered KaTeX gets isolated ----------------------------------
@@ -168,6 +177,147 @@ function setup(bodyHTML) {
   domLayer.processAll();
   const a = document.querySelector('a');
   check('long anchor: NOT isolated (flows with prose)', a.dataset.unimathAtom !== '1');
+}
+
+// --- Test 12: the changed paragraph ITSELF is the scope (streaming path) ----
+// The observer hands processScope the paragraph that changed, not its parent.
+{
+  const { domLayer, document } = setup('<div><p id="a">טקסט שהגיע עכשיו $x$</p></div>');
+  const p = document.querySelector('#a');
+  domLayer.processScope(p);
+  check('self scope: the paragraph itself flips to rtl', p.style.direction === 'rtl');
+  check('self scope: its math is isolated', p.querySelectorAll('[data-unimath-island="raw"]').length === 1);
+}
+
+// --- Test 13: base direction follows the language, not one stray word -------
+{
+  const { domLayer, document } = setup(
+    '<p id="en">The word שלום means peace in Hebrew</p>' +
+    '<p id="he">React היא ספרייה של פייסבוק לבניית ממשקים</p>' +
+    '<p id="math">$x^2 + y^2 = r^2$ היא משוואת המעגל</p>' +
+    '<p id="code"><code>useEffect</code> רץ אחרי כל רינדור</p>' +
+    '<p id="katex"><span class="katex">abcdefghijklmnopqrstuvwxyz</span> הוא ביטוי ארוך</p>'
+  );
+  domLayer.processAll();
+  const dir = (id) => document.querySelector('#' + id).style.direction;
+  check('direction: English that quotes a Hebrew word stays ltr', dir('en') !== 'rtl');
+  check('direction: Hebrew that opens with an English term is rtl', dir('he') === 'rtl');
+  check('direction: a leading formula does not outvote the sentence', dir('math') === 'rtl');
+  check('direction: leading inline code does not outvote the sentence', dir('code') === 'rtl');
+  check('direction: rendered math letters are not counted', dir('katex') === 'rtl');
+}
+
+// --- Test 14: a block that stops being RTL gets its own styles back ---------
+{
+  const { domLayer, document } = setup('<p style="text-align: center">שלום עולם</p>');
+  const p = document.querySelector('p');
+  domLayer.processAll();
+  check('restore: flipped to rtl', p.style.direction === 'rtl' && p.getAttribute('data-unimath') === 'rtl');
+  p.textContent = 'hello world';
+  domLayer.processAll();
+  check('restore: direction cleared', p.style.direction === '' && !p.hasAttribute('data-unimath'));
+  check('restore: the original alignment is back', p.style.textAlign === 'center');
+  check('restore: no bookkeeping left behind', !p.hasAttribute('data-unimath-saved'));
+}
+
+// --- Test 15: lists mirror by majority, and English items stay readable -----
+{
+  const { domLayer, document } = setup(
+    '<ul id="he" style="padding-left: 24px"><li>פריט ראשון</li><li>Node.js (v20).</li><li>פריט שלישי</li></ul>' +
+    '<ul id="en"><li>First item</li><li>Second item</li><li>מילה אחת</li></ul>' +
+    '<ol id="loose"><li><p>פסקה בעברית</p></li><li><p>English paragraph.</p></li></ol>'
+  );
+  domLayer.processAll();
+  const he = document.querySelector('#he');
+  const en = document.querySelector('#en');
+  check('list: mostly-Hebrew list is mirrored', he.style.direction === 'rtl');
+  check('list: bullet padding moved to the right',
+    he.style.paddingRight === '24px' && (he.style.paddingLeft === '0px' || he.style.paddingLeft === '0'));
+  check('list: English item inside it is marked ltr', he.children[1].getAttribute('data-unimath') === 'ltr');
+  check('list: Hebrew items are rtl', he.children[0].getAttribute('data-unimath') === 'rtl');
+  check('list: mostly-English list is left alone', en.style.direction !== 'rtl');
+  check('list: its one Hebrew item is still rtl', en.children[2].style.direction === 'rtl');
+  const loose = document.querySelector('#loose');
+  check('list: loose item paragraph is marked ltr',
+    loose.children[1].querySelector('p').getAttribute('data-unimath') === 'ltr');
+
+  // The list turns English: everything is put back.
+  he.children[0].textContent = 'First';
+  he.children[2].textContent = 'Third';
+  domLayer.processAll();
+  check('list: un-mirrored when it stops being RTL',
+    he.style.direction === '' && he.style.paddingLeft === '24px' && !he.hasAttribute('data-unimath-list'));
+  check('list: ltr marks removed', !he.children[1].hasAttribute('data-unimath'));
+}
+
+// --- Test 16: tables run right-to-left when their header is RTL -------------
+{
+  const { domLayer, document } = setup(
+    '<table id="he"><thead><tr><th>שם</th><th>Score</th><th>עיר</th></tr></thead>' +
+    '<tbody><tr><td>דנה</td><td>-5</td><td>Tel Aviv.</td></tr></tbody></table>' +
+    '<table id="en"><thead><tr><th>Name</th><th>City</th></tr></thead>' +
+    '<tbody><tr><td>דנה</td><td>חולון</td></tr></tbody></table>'
+  );
+  domLayer.processAll();
+  const he = document.querySelector('#he');
+  const cells = he.querySelectorAll('td');
+  check('table: Hebrew-headed table is mirrored', he.style.direction === 'rtl');
+  check('table: Hebrew cell is rtl', cells[0].getAttribute('data-unimath') === 'rtl');
+  check('table: number cell is marked ltr (so "-5" keeps its sign in place)',
+    cells[1].getAttribute('data-unimath') === 'ltr');
+  check('table: English cell is marked ltr', cells[2].getAttribute('data-unimath') === 'ltr');
+  check('table: English-headed table keeps its column order',
+    document.querySelector('#en').style.direction !== 'rtl');
+}
+
+// --- Test 17: the quote bar moves to the right in RTL -----------------------
+{
+  const { domLayer, document } = setup(
+    '<blockquote style="border-left: 3px solid rgb(200, 200, 200); padding-left: 12px">ציטוט חשוב מאוד</blockquote>'
+  );
+  domLayer.processAll();
+  const q = document.querySelector('blockquote');
+  check('quote: direction rtl', q.style.direction === 'rtl');
+  check('quote: bar moved to the right', /3px/.test(q.style.borderRight) && q.style.borderLeftWidth === '0px');
+  check('quote: padding moved with it', q.style.paddingRight === '12px');
+  q.textContent = 'An important quote';
+  domLayer.processAll();
+  check('quote: bar returns to the left when the quote turns English',
+    q.style.borderLeftWidth === '3px' && q.style.paddingLeft === '12px' && q.style.direction === '');
+}
+
+// --- Test 18: a reply that is still streaming is not rewritten --------------
+{
+  const { domLayer, document } = setup(
+    '<div id="msg" data-is-streaming="true"><p>הפתרון הוא $x = 5$ בדיוק</p></div>'
+  );
+  const msg = document.querySelector('#msg');
+  const textNode = msg.querySelector('p').firstChild;
+  domLayer.processAll();
+  check('streaming: text nodes are left alone while the reply is being written',
+    msg.querySelectorAll('[data-unimath-island]').length === 0 && msg.querySelector('p').firstChild === textNode);
+  check('streaming: direction is still applied live', msg.querySelector('p').style.direction === 'rtl');
+  msg.setAttribute('data-is-streaming', 'false');
+  domLayer.processScope(msg);
+  check('streaming: math is isolated once the reply is finished',
+    msg.querySelectorAll('[data-unimath-island="raw"]').length === 1);
+}
+
+// --- Test 19: everything above is idempotent together -----------------------
+{
+  const { domLayer, document } = setup(
+    '<p>React היא ספרייה, ו-$x$ משתנה</p>' +
+    '<ul style="padding-left: 20px"><li>אחד</li><li>Two.</li></ul>' +
+    '<table><tr><th>שם</th></tr><tr><td>7</td></tr></table>' +
+    '<blockquote style="border-left: 2px solid red">ציטוט</blockquote>'
+  );
+  domLayer.processAll();
+  const first = document.body.innerHTML;
+  domLayer.processAll();
+  domLayer.processScope(document.querySelector('li'));
+  domLayer.processScope(document.querySelector('td'));
+  check('idempotent: lists, tables and quotes are stable under re-processing',
+    document.body.innerHTML === first);
 }
 
 console.log('\n----------------------------------------');
