@@ -29,6 +29,10 @@ PATCHED_APP="$HOME/Applications/$APP_NAME.app"
 PATCHED_ASAR="$PATCHED_APP/Contents/Resources/app.asar"
 MARKER="CLAUDE-UNIMATH START"
 
+# The version of the payload in this folder (read from the built file).
+VERSION="$(sed -n "s/.*const VERSION = '\([^']*\)'.*/\1/p" "$PAYLOAD_FILE" 2>/dev/null | head -n 1 || true)"
+VERSION="${VERSION:-unknown}"
+
 TMP_DIR=""
 
 # --- pretty output ---------------------------------------------------------
@@ -90,6 +94,7 @@ install_patch() {
   [ -d "$SOURCE_APP" ] || die "Claude.app not found at $SOURCE_APP. Is Claude Desktop installed?"
   [ -f "$PAYLOAD_FILE" ] || die "payload.js not found at $PAYLOAD_FILE. Re-clone the repository."
   check_deps
+  log "Claude-UniMath payload version: $VERSION"
   quit_patched
 
   step "Creating patched copy..."
@@ -190,7 +195,7 @@ uninstall_patch() {
 }
 
 show_status() {
-  printf '\n%sClaude-UniMath — Status%s\n\n' "$C_BLD" "$C_NC"
+  printf '\n%sClaude-UniMath %s — Status%s\n\n' "$C_BLD" "$VERSION" "$C_NC"
   if [ -d "$SOURCE_APP" ]; then
     local v; v="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$SOURCE_APP/Contents/Info.plist" 2>/dev/null || echo unknown)"
     ok "Original Claude.app: installed (v$v)"
@@ -204,6 +209,11 @@ show_status() {
       ok "Patched $APP_NAME.app: installed (v$pv, fuse disabled)"
     else
       warn "Patched $APP_NAME.app: found (v$pv) but fuse state unclear"
+    fi
+    # Claude updates itself, the patched copy does not.
+    if [ -d "$SOURCE_APP" ] && [ "${v:-}" != "${pv:-}" ]; then
+      warn "Claude is now v${v:-unknown} but the patched copy is v${pv:-unknown}."
+      log  "Rebuild it from the new version:  ./install.sh --install"
     fi
   else
     log "Patched $APP_NAME.app: not installed"
@@ -220,7 +230,8 @@ Usage: $0 [OPTION]
 
   --install     Build patched copy at ~/Applications/$APP_NAME.app
   --uninstall   Remove the patched app
-  --status      Show install status
+  --status      Show install status, and whether Claude was updated since
+  --version     Show the Claude-UniMath version
   --help        This message
 
 With no option, an interactive menu is shown.
@@ -245,6 +256,7 @@ case "${1:-}" in
   --install)   install_patch ;;
   --uninstall) uninstall_patch ;;
   --status)    show_status ;;
+  --version|-v) printf 'Claude-UniMath %s\n' "$VERSION" ;;
   --help|-h)   usage ;;
   "")          menu ;;
   *)           err "Unknown option: $1"; usage; exit 1 ;;
