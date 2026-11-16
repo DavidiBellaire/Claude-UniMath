@@ -7,7 +7,7 @@
 **The first** RTL patch to bring proper **mathematics handling** to the Claude Desktop app on macOS.
 Hebrew, Arabic, Persian, and every other right-to-left script — with LaTeX and KaTeX that stay upright and correct.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Licence: free to use](https://img.shields.io/badge/licence-free%20to%20use-yellow.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/platform-macOS-black.svg)](#requirements)
 [![Tests: 54 passing](https://img.shields.io/badge/tests-54%20passing-brightgreen.svg)](#development--tests)
 [![Made by Davidi Bellaire](https://img.shields.io/badge/made%20by-Davidi%20Bellaire-blue.svg)](https://github.com/DavidiBellaire)
@@ -180,4 +180,6 @@ This patch modifies Claude Desktop's internal files, which Anthropic does not of
 
 ## License
 
-[MIT](LICENSE) © 2026 Davidi Bellaire
+© 2026 Davidi Bellaire. All rights reserved.
+
+Claude-UniMath is free to install and use. Copying, redistributing, publishing modified versions or selling it requires written permission. The full terms are in [LICENSE](LICENSE). Versions published before 16 November 2026 were released under the MIT License.
