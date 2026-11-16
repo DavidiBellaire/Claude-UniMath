@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  Claude-UniMath demo page.
+
+  Open this file in any browser to see the patch at work without installing
+  anything. It loads the real payload (../src/payload.js) over sample content
+  shaped like Claude's replies. Add "?off" to the address to see the same page
+  without the patch.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude-UniMath demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #262624; color: #eceae4; font: 16px/1.65 ui-serif, Georgia, "Times New Roman", serif; }
+      main { max-width: 720px; margin: 0 auto; padding: 28px 22px 80px; }
+      header { font: 14px/1.4 -apple-system, "Segoe UI", sans-serif; color: #a8a69e; margin-bottom: 26px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+      header b { color: #eceae4; font-size: 17px; }
+      header a { color: #d97757; text-decoration: none; border: 1px solid #55534d; border-radius: 8px; padding: 4px 10px; }
+      .state { margin-inline-start: auto; }
+      h2 { font: 600 12px/1 -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; color: #8a8880; margin: 34px 0 10px; }
+      p { margin: 0 0 12px; }
+      ul, ol { margin: 0 0 12px; padding-left: 26px; }
+      li { margin-bottom: 4px; }
+      blockquote { margin: 0 0 12px; padding-left: 14px; border-left: 3px solid #6b6962; color: #c9c7bf; }
+      table { border-collapse: collapse; margin: 0 0 12px; width: 100%; font-size: 15px; }
+      th, td { border-bottom: 1px solid #45443f; padding: 8px 10px; text-align: left; }
+      th { color: #a8a69e; font-weight: 600; }
+      pre { background: #1b1b19; border: 1px solid #3a3935; border-radius: 10px; padding: 12px 14px; overflow: auto; }
+      code { font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+      p code, li code { background: #3a3935; border-radius: 5px; padding: 1px 5px; }
+      .katex { font-family: "Times New Roman", serif; font-style: italic; font-size: 1.1em; white-space: nowrap; }
+      .chip { display: inline-block; font: 12px/1.6 -apple-system, "Segoe UI", sans-serif; background: #3a3935; border-radius: 6px; padding: 0 7px; color: #c9c7bf; }
+      .input { border: 1px solid #55534d; border-radius: 14px; padding: 12px 14px; background: #30302e; font-family: -apple-system, "Segoe UI", sans-serif; }
+      .input p { margin: 0 0 4px; }
+      .input:focus { outline: 1px solid #d97757; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <b>Claude-UniMath demo</b>
+        <span id="state" class="state"></span>
+        <a id="toggle" href="?off">Show without the patch</a>
+      </header>
+
+      <h2>Hebrew prose with raw LaTeX</h2>
+      <p id="raw">הערך העצמי הוא $\lambda = 3$ עם ריבוי אלגברי $2$, ולכן המטריצה לכסינה.</p>
+      <p>יהי $x$ מספר ממשי. אם $x^2 + 1 > 0$ אז הפונקציה $f(x) = 2x + 1$ עולה.</p>
+
+      <h2>Rendered math</h2>
+      <p id="rendered">נתון כי <span class="katex">a² + b² = c²</span> במשולש ישר זווית, ולכן <span class="katex">c = √(a² + b²)</span>.</p>
+
+      <h2>Prices are not math</h2>
+      <p id="money">שילמתי $20 על הספר ועוד $15 על המשלוח, כלומר $x = 35$ בסך הכול.</p>
+
+      <h2>A paragraph that opens with an English word</h2>
+      <p id="react">React היא ספרייה של JavaScript לבניית ממשקי משתמש, ו-<code>useEffect</code> רץ אחרי כל רינדור.</p>
+
+      <h2>English that quotes one Hebrew word</h2>
+      <p id="english">The word שלום means peace, and it is also a common greeting.</p>
+
+      <h2>A list with one English item</h2>
+      <ul id="list">
+        <li>התקנת התלויות עם <code>npm install</code></li>
+        <li id="node">Node.js (v20).</li>
+        <li>הרצת הבדיקות <span class="chip">docs.npmjs.com</span> לפני כל שינוי</li>
+      </ul>
+
+      <h2>A table</h2>
+      <table id="table">
+        <thead><tr><th>עיר</th><th>טמפרטורה</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>חולון</td><td id="minus">-5</td><td id="note">Cold (rare).</td></tr>
+          <tr><td>אילת</td><td>31</td><td>חם מאוד</td></tr>
+        </tbody>
+      </table>
+
+      <h2>A quote</h2>
+      <blockquote id="quote">מתמטיקה היא השפה שבה נכתב היקום.</blockquote>
+
+      <h2>Arabic and Persian</h2>
+      <p>القيمة هي $\alpha + \beta$ هنا، والنتيجة <span class="katex">x = 4</span>.</p>
+      <p>این معادله $E = mc^2$ بسیار معروف است.</p>
+
+      <h2>Code never flips</h2>
+      <pre><code>const price = "$5"; // לא מתמטיקה, ולא מתהפך
+const total = price * 2;</code></pre>
+
+      <h2>The box you type in (try it)</h2>
+      <div class="input" data-testid="chat-input" contenteditable="true"><p id="in-he">שלום, מה שלומך?</p><p id="in-en">And one line in English.</p></div>
+    </main>
+
+    <script>
+      var off = location.search.indexOf('off') !== -1;
+      document.getElementById('state').textContent = off ? 'Patch: off' : 'Patch: on';
+      var toggle = document.getElementById('toggle');
+      toggle.textContent = off ? 'Show with the patch' : 'Show without the patch';
+      toggle.href = off ? location.pathname : '?off';
+      if (!off) {
+        var script = document.createElement('script');
+        script.src = '../src/payload.js';
+        document.body.appendChild(script);
+      }
+    </script>
+  </body>
+</html>

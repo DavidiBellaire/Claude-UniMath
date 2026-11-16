@@ -9,7 +9,8 @@ Hebrew, Arabic, Persian, and every other right-to-left script — with LaTeX and
 
 [![Licence: free to use](https://img.shields.io/badge/licence-free%20to%20use-yellow.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/platform-macOS-black.svg)](#requirements)
-[![Tests: 54 passing](https://img.shields.io/badge/tests-54%20passing-brightgreen.svg)](#development--tests)
+[![Tests: 144 passing](https://img.shields.io/badge/tests-144%20passing-brightgreen.svg)](#development--tests)
+[![Version 1.1.0](https://img.shields.io/badge/version-1.1.0-orange.svg)](CHANGELOG.md)
 [![Made by Davidi Bellaire](https://img.shields.io/badge/made%20by-Davidi%20Bellaire-blue.svg)](https://github.com/DavidiBellaire)
 
 </div>
@@ -52,7 +53,7 @@ Every other RTL patch answers one question: *"is there an RTL character? then al
 | **Every** RTL Unicode script | partial | partial | ✅ |
 | Live during **streaming** | ✅ | ✅ | ✅ |
 | **Non-destructive** (original app untouched) | varies | n/a | ✅ |
-| **Tested** (54 assertions) | ❌ | ❌ | ✅ |
+| **Tested** (144 assertions) | ❌ | ❌ | ✅ |
 
 <details>
 <summary><b>The three ideas no one else implements on desktop</b> (click to expand)</summary>
@@ -66,6 +67,36 @@ Every other RTL patch answers one question: *"is there an RTL character? then al
 It also isolates **citation chips and inline UI atoms** so they sit on the correct side of an RTL line, handles content **live as it streams**, and is fully **idempotent** — re-processing never double-wraps or corrupts anything.
 
 </details>
+
+<details>
+<summary><b>What it handles</b> (new in 1.1)</summary>
+
+<br>
+
+- **Direction follows the language, not one stray word.** A block is RTL when it starts with an RTL letter, or when RTL letters are a real share of its letters. `React היא ספרייה של פייסבוק` is RTL even though it opens in English, and `The word שלום means peace` stays LTR. Math and code are left out of the count.
+- **Plain inline math.** `$x$`, `$n+1$` and `$f(x) = 2x + 1$` are recognised without needing a LaTeX command, using the same delimiter rule TeX-aware Markdown parsers use. `$20 and $30`, `$5-$10` and `בין $5 ל-$10` are still prices.
+- **Raw environments.** `\begin{pmatrix} … \end{pmatrix}` and friends are isolated like any other formula.
+- **Tables.** Columns run right-to-left when the header row is mostly RTL. Cells such as `-5` or `Cold (rare).` keep their sign and punctuation in the right place.
+- **Lists.** A list is mirrored when at least half of its items are RTL, and an English item inside it stays readable and lined up with the rest.
+- **Quotes.** The bar moves to the right edge.
+- **The box you type in.** Every line finds its own direction, so a Hebrew line and an English line can sit in the same message.
+- **Every script counts.** Greek, Cyrillic, accented Latin and CJK are treated as left-to-right letters, not skipped.
+- **Streaming-safe.** While the app marks a reply as still streaming, its text is not rewritten under the app's own renderer. Direction, rendered math, lists and tables stay live, and raw LaTeX is isolated the moment the reply is complete.
+- **Reversible on the page.** Any style the patch changes is remembered and put back if a block stops being RTL.
+
+</details>
+
+## Try it without installing
+
+Open [`demo/index.html`](demo/index.html) in any browser. It runs the real payload over sample content, with a switch to see the same page without the patch.
+
+<table>
+  <tr>
+    <td>
+      <img src="./assets/demo.png" alt="The demo page without the patch (left) and with it (right)">
+    </td>
+  </tr>
+</table>
 
 ## Quick start
 
@@ -93,7 +124,8 @@ A patched copy is built at `~/Applications/Claude-UniMath.app` and launches auto
 ```bash
 ./install.sh --install      # Install, or re-apply after a Claude update
 ./install.sh --uninstall    # Remove the patched copy
-./install.sh --status       # Show install status and fuse state
+./install.sh --status       # Show install status, fuse state, and whether Claude was updated since
+./install.sh --version      # Show the Claude-UniMath version
 ./install.sh                # Interactive menu
 ```
 
@@ -132,10 +164,11 @@ The engine is split so the logic is testable in isolation from Electron:
 
 ```bash
 npm install        # installs jsdom (dev dependency) for the DOM tests
-npm test           # full suite — 54 assertions, 0 failures
+npm test           # full suite — 144 assertions, 0 failures
+npm run build      # regenerate src/payload.js after changing the sources
 ```
 
-`src/core.js` is pure and DOM-free. `src/payload.js` inlines a synchronized copy for runtime injection; the suite verifies the inlined copy matches the module exactly, so they never drift.
+`src/core.js` is pure and DOM-free. `src/dom.js` applies its decisions to the page, and `src/runtime.js` wires both to a live window. `src/payload.js`, the one file the installer injects, is **generated** from those three by `scripts/build.js`. The suite fails if it is out of date, and then runs the generated file itself inside a simulated page, so the code that is tested is exactly the code that ships.
 
 ```
 Claude-UniMath/
@@ -144,11 +177,18 @@ Claude-UniMath/
 │   └── banner.svg      # README banner
 ├── src/
 │   ├── core.js         # Pure BiDi + math-detection engine (DOM-free, testable)
-│   ├── dom.js          # DOM layer: isolates math & inline atoms, sets RTL direction
-│   └── payload.js      # Self-contained IIFE injected into Claude Desktop
+│   ├── dom.js          # DOM layer: math islands, prose direction, lists, tables, quotes
+│   ├── runtime.js      # Stylesheet, typing box, streaming observer
+│   └── payload.js      # GENERATED: the self-contained file injected into Claude Desktop
+├── scripts/
+│   └── build.js        # Builds src/payload.js from the three sources
+├── demo/
+│   └── index.html      # See the patch in any browser, no install needed
 ├── test/
-│   ├── core.test.js    # RTL detection + math segmentation
-│   └── dom.test.js     # isolation, streaming, idempotency, citation chips
+│   ├── core.test.js    # RTL detection, base direction, math vs currency
+│   ├── dom.test.js     # isolation, direction, lists, tables, quotes, streaming
+│   └── payload.test.js # the shipped file: up to date, start-up, observer, typing box
+├── CHANGELOG.md
 ├── package.json
 ├── LICENSE
 └── README.md
