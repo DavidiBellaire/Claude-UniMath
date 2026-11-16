@@ -1,6 +1,6 @@
 {
   "name": "claude-unimath",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Universal RTL + mathematics support for Claude Desktop on macOS. Detects every right-to-left script and isolates LaTeX/KaTeX and English as left-to-right islands so mixed-direction text with math renders correctly.",
   "author": "Davidi Bellaire (https://github.com/DavidiBellaire)",
   "license": "SEE LICENSE IN LICENSE",
@@ -22,9 +22,11 @@
     "macos"
   ],
   "scripts": {
-    "test": "node test/core.test.js && node test/dom.test.js",
+    "build": "node scripts/build.js",
+    "test": "node scripts/build.js --check && node test/core.test.js && node test/dom.test.js && node test/payload.test.js",
     "test:core": "node test/core.test.js",
-    "test:dom": "node test/dom.test.js"
+    "test:dom": "node test/dom.test.js",
+    "test:payload": "node test/payload.test.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"
